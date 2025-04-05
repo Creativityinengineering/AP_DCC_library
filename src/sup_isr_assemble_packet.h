@@ -7,7 +7,7 @@
 //
 //******************************************************************************************************
 
-#include "../Railcom/Railcom.h"  // Einbinden der Railcom-Header-Datei
+#include "../../Railcom/Railcom.h"  // Einbinden der Railcom-Header-Datei
 
   dccrec.bitCount++;
 
