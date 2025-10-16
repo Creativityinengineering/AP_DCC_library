@@ -7,7 +7,7 @@
 //
 //******************************************************************************************************
 
-//#include "../../Railcom/Railcom.h"  // Einbinden der Railcom-Header-Datei
+#include "../../Railcom/Railcom.h"  // Einbinden der Railcom-Header-Datei
 
   dccrec.bitCount++;
 
@@ -55,7 +55,7 @@
     break;
 
   case WAIT_DATA:
-  //  END_Cut_OFF_Interrupt();
+    END_Cut_OFF_Interrupt();
   //==================
     tempByte = (tempByte << 1);                       // move all bits left
     if (DccBitVal) tempByte |= 1;                     // add a "1"
@@ -84,7 +84,7 @@
       // If somewhere in the future Railcom feedback will be implemented, this could be
       // the place to start a timer that determines the exact moment a UART should start
       // sending the RailCom feedback data.
-   //   START_Cut_OFF_Interrupt();  //Give a Trigger Impuls To Railcom Lib to trigger UART Detection
+      START_Cut_OFF_Interrupt();  //Give a Trigger Impuls To Railcom Lib to trigger UART Detection
       uint8_t i;
       uint8_t bytes_received;
       bytes_received = dccrec.tempMessageSize;
