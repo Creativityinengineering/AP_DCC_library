@@ -6,8 +6,19 @@
 //           This code is independent of a specific type of hardware
 //
 //******************************************************************************************************
+#include "../../globals/globals.h"
 
-#include "../../Railcom/Railcom.h"  // Einbinden der Railcom-Header-Datei
+#if ENABLE_RAILCOM
+#include "../../Railcom/Railcom.h"    // muss vor den ISR-Headern stehen
+#else
+#ifndef START_Cut_OFF_Interrupt
+  #define START_Cut_OFF_Interrupt() ((void)0)
+#endif
+#ifndef END_Cut_OFF_Interrupt
+  #define END_Cut_OFF_Interrupt()   ((void)0)
+#endif
+#endif
+
 
   dccrec.bitCount++;
 

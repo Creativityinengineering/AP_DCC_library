@@ -49,7 +49,7 @@
 //******************************************************************************************************
 #include <Arduino.h>
 #include "sup_isr.h"
-
+#include "../../globals/globals.h"   // für g_lastDccEdgeMicros
 
 //******************************************************************************************************
 // 1. Declaration of external objects
@@ -179,12 +179,17 @@ void init_timer2(void) {
 // 5. DCC Interrupt Routine
 //******************************************************************************************************
 void dcc_interrupt(void) {
+
   // After each DCC interrupt Timer 2 will be started
   #if defined(TCCR2)              // ATMEGA 8535, 16, 32, 64, 162 etc
   TCCR2 |= (T2_PRESCALER_BITS);   // Start Timer 2
   #elif defined(TCCR2B)           // ATMEGA 328, 2560 etc.
   TCCR2B |= (T2_PRESCALER_BITS);  // Start Timer 2
   #endif
+
+
+
+  g_lastDccEdgeMicros = micros();    // DCC Aktivität registrieren
 }
 
 
@@ -272,6 +277,7 @@ ISR(TIMER2_OVF_vect) {
   #endif
   TCNT2 = 256L - T77US;        // preload the timer
 
+  
   // Next lines are needed for occupancy decoders (Gleis Besetzt Meldung - GBM)
   // Start new ADC in case the ADC read process is ready and some time (like 1ms) have passed.
   // We start new AD conversions in case the Microcontroller input line is high
