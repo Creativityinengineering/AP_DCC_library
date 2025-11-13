@@ -33,6 +33,7 @@
 //
 //******************************************************************************************************
 #include <Arduino.h>
+#include "../../globals/globals.h"
 
 #if defined(__AVR_MEGA__)
   // Only runs on Atmega (AVR) processors
@@ -59,3 +60,9 @@
     #include "sup_isr_Mega.h"
   #endif
 #endif
+
+static inline void DCC_edge_timestamp() {
+  g_lastDccEdgeMicros = micros();
+}
+
+// Bei jeder erkannten DCC Flanke:
