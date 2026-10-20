@@ -192,6 +192,17 @@ void dcc_interrupt(void) {
   g_lastDccEdgeMicros = micros();    // DCC Aktivität registrieren
 }
 
+#if defined(__AVR_ATmega328P__) && !defined(DCC_USE_ARDUINO_ATTACH)
+// Direkte INT1-ISR (Pin 3): der Arduino-Wrapper von attachInterrupt() rettet alle Register und ruft die
+// Funktion indirekt auf (ca. 70 Takte extra), und micros() braucht nochmal ca. 40 Takte. Hier wird nur
+// Timer 2 gestartet und die Flanke grob (Timer0-Überläufe zu je 1,024 ms) gestempelt.
+extern volatile unsigned long timer0_overflow_count;
+ISR(INT1_vect) {
+  TCCR2B |= (T2_PRESCALER_BITS);                               // Start Timer 2
+  g_lastDccEdgeTick = (uint16_t)timer0_overflow_count;         // DCC Aktivität registrieren
+}
+#endif
+
 
 //******************************************************************************************************
 // 6. attach() / detach()
@@ -233,7 +244,13 @@ void DccMessage::attach(uint8_t dccPin, uint8_t ackPin) {
   init_timer2();
   // Intialise the DCC interupt routine
   pinMode(dccPin, INPUT_PULLUP);
+  #if defined(__AVR_ATmega328P__) && !defined(DCC_USE_ARDUINO_ATTACH)
+  EICRA |= (1 << ISC11) | (1 << ISC10);   // INT1: steigende Flanke
+  EIFR  = (1 << INTF1);
+  EIMSK |= (1 << INT1);
+  #else
   attachInterrupt(digitalPinToInterrupt(dccPin), dcc_interrupt, RISING );
+  #endif
   // Map from dccPin to a pointer towards the port, as well as a bitmask
   dccIn.port = digitalPinToPort(dccPin);
   dccIn.bit = digitalPinToBitMask(dccPin);
@@ -247,7 +264,11 @@ void DccMessage::attach(uint8_t dccPin, uint8_t ackPin) {
 
 void DccMessage::detach(void) {
   // Detach the ISR
+  #if defined(__AVR_ATmega328P__) && !defined(DCC_USE_ARDUINO_ATTACH)
+  EIMSK &= ~(1 << INT1);
+  #else
   detachInterrupt(digitalPinToInterrupt(_dccPin));
+  #endif
   // Stop the Timer 2
   #if defined(TCCR2)           // ATMEGA 8535, 16(A), 162 etc
   TCCR2 = 0;                   // 0 => timer is stopped
