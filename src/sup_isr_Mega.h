@@ -197,10 +197,30 @@ void dcc_interrupt(void) {
 // Funktion indirekt auf (ca. 70 Takte extra), und micros() braucht nochmal ca. 40 Takte. Hier wird nur
 // Timer 2 gestartet und die Flanke grob (Timer0-Überläufe zu je 1,024 ms) gestempelt.
 extern volatile unsigned long timer0_overflow_count;
+#ifndef DCC_NO_FAST_INT1
+// Handgeschriebene Variante (ca. 30 statt 65 Takte): nur r24 wird gesichert, ldi/lds/sts aendern das SREG nicht.
+// Timer 2 wird mit einem Schreibzugriff gestartet (TCCR2B enthaelt sonst nur 0-Bits, siehe T2-ISR: dort wird es auf 0 gesetzt).
+ISR(INT1_vect, ISR_NAKED) {
+  __asm__ __volatile__(
+    "push r24\n\t"
+    "ldi  r24, %[ps]\n\t"
+    "sts  %[tccr], r24\n\t"                         // Start Timer 2
+    "lds  r24, %[t0]\n\t"
+    "sts  %[last], r24\n\t"                         // Flankenzeit (Timer0-Ueberlaeufe), 16 Bit
+    "lds  r24, %[t0]+1\n\t"
+    "sts  %[last]+1, r24\n\t"
+    "pop  r24\n\t"
+    "reti\n\t"
+    :
+    : [ps] "M"(T2_PRESCALER_BITS), [tccr] "i"(_SFR_MEM_ADDR(TCCR2B)),
+      [t0] "i"(&timer0_overflow_count), [last] "i"(&g_lastDccEdgeTick));
+}
+#else
 ISR(INT1_vect) {
   TCCR2B |= (T2_PRESCALER_BITS);                               // Start Timer 2
   g_lastDccEdgeTick = (uint16_t)timer0_overflow_count;         // DCC Aktivität registrieren
 }
+#endif
 #endif
 
 
@@ -297,8 +317,15 @@ ISR(TIMER2_OVF_vect) {
   TCCR2B = 0;                  // 0 => timer is stopped
   #endif
   TCNT2 = 256L - T77US;        // preload the timer
+  #ifdef DCC_T2_SEI
+  // Optional (Standard: aus): Timer 2 ist gestoppt und neu geladen, der Rest der Bitauswertung koennte unterbrechbar
+  // sein (Motor-PWM-Interrupts). Die naechste INT1-Flanke kommt fruehestens 116 us nach der vorigen, dieser
+  // Overflow liegt 77 us danach und endet nach <10 us. Auf echter Hardware unterbrechen dann auch Vektoren mit
+  // niedrigerer Prioritaet; SimulIDE bildet das nicht ab (nur Vektoren hoeherer Prioritaet), die Wirkung ist dort
+  // nicht messbar und auf dem ATmega328P nicht geprueft.
+  sei();
+  #endif
 
-  
   // Next lines are needed for occupancy decoders (Gleis Besetzt Meldung - GBM)
   // Start new ADC in case the ADC read process is ready and some time (like 1ms) have passed.
   // We start new AD conversions in case the Microcontroller input line is high
