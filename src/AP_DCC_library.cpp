@@ -33,6 +33,12 @@
 #include "sup_acc.h"
 #include "sup_loco.h"
 #include "sup_cv.h"
+
+// Lokbefehle (7-/14-Bit-Adressen) auswerten. Der Schiebebuehnen-Decoder ist ein reiner Zubehoerdecoder;
+// ohne Lok-Auswertung spart die Firmware ca. 700 Byte Flash. Mit -DDCC_ENABLE_LOCO=1 wieder aktivieren.
+#ifndef DCC_ENABLE_LOCO
+#define DCC_ENABLE_LOCO 0
+#endif
 //#include "../../globals/globals.h"
 // The following objects must be visible for the main sketch. These objects are declared here,
 // thus the main sketch doesn't need to bother about declaring these necessary objects itself.
@@ -126,9 +132,17 @@ bool Dcc::input(void) {
         cvMessage.inServiceMode = false;
         uint8_t firstbyte = dccMessage.data[0];
         if      (firstbyte == 0b00000000) cmdType = analyze_broadcast_message();  // Reset or (Emergency) Stop
+#if DCC_ENABLE_LOCO
         else if (firstbyte <= 0b01111111) cmdType = locoMessage.analyse();        // 7-bit address
+#else
+        else if (firstbyte <= 0b01111111) cmdType = IgnoreCmd;                    // Loco: nicht ausgewertet
+#endif
         else if (firstbyte <= 0b10111111) cmdType = accMessage.analyse();         // Accessory command
+#if DCC_ENABLE_LOCO
         else if (firstbyte <= 0b11100111) cmdType = locoMessage.analyse();        // 14-bit address
+#else
+        else if (firstbyte <= 0b11100111) cmdType = IgnoreCmd;                    // Loco: nicht ausgewertet
+#endif
         else if (firstbyte <= 0b11111110) cmdType = IgnoreCmd;                    // Reserved in DCC for Future Use
         else cmdType = IgnoreCmd;                                                 // 255: Idle Packet
       }
